@@ -1,13 +1,27 @@
-from scapy.all import sniff, IP
+from scapy.all import sniff, IP, TCP, UDP, ICMP
+from translator import translate
 
-# Callback function that gets run for each packet captured
+# Runs for each captured packet. Filters only IP traffic.
 def handle_packet(packet):
-    # Only processing packets that have an IP layer
+    # Grab source and destination IPs from the IP layer
     if IP in packet:
-        src_ip = packet[IP].src   # Source IP
-        dst_ip = packet[IP].dst   # Destination IP
+        src_ip = packet[IP].src
+        dst_ip = packet[IP].dst
 
-        print(f"📦 Packet: {src_ip} → {dst_ip}")
+        # Determine transport-level protocol
+        if TCP in packet:
+            proto = "TCP"
+        elif UDP in packet:
+            proto = "UDP"
+        elif ICMP in packet:
+            proto = "ICMP"
+        else:
+            proto = "Other"
+        
+        # Send to translator to turn into plain-English summary
+        summary = translate(packet)
+        print(f"🧠 {summary}")
+
 
 # Start sniffing packets from the network
 sniff(
