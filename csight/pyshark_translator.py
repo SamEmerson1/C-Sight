@@ -4,6 +4,7 @@ import psutil
 from collections import deque
 
 recent_logs = deque(maxlen=10)
+quic_host_cache = {}   # map (client_ip, server_ip) → hostname
 
 
 # Get the local IP address
@@ -26,33 +27,51 @@ def resolve_hostname(ip):
 
     elif ip.startswith("10.") or ip.startswith("192.168."):
         return "Another device on your network"
-
     return ip  # Don't even try reverse DNS (too slow)
 
 
 # Given a PyShark packet, returns a human-readable description
 def format_packet(packet):
     # Check if the packet has an IP layer for sorting
-    if 'ip' in packet:
-        src = resolve_hostname(packet.ip.src)
-        dst = resolve_hostname(packet.ip.dst)
+    if 'ip' not in packet:
+        return
 
-        # Secure web browsing
-        if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
-            hostname = packet.tls.handshake_extensions_server_name
-            return f"🔐 {src} is connecting to {hostname} securely."
+    src_ip = packet.ip.src
+    dst_ip = packet.ip.dst
+    src = resolve_hostname(packet.ip.src)
+    dst = resolve_hostname(packet.ip.dst)
 
-        # Regular web browsing
-        elif 'http' in packet and hasattr(packet.http, 'host'):
-            hostname = packet.http.host
-            return f"🌐 {src} is connecting to {hostname} insecurely."
+    # Secure web browsing
+    if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
+        hostname = packet.tls.handshake_extensions_server_name
+        return f"🔐 {src} is connecting to {hostname} securely."
 
-        # SSH connection
-        elif 'ssh' in packet or (packet.transport_layer == 'TCP' and packet[packet.transport_layer].dstport == '22'):
-            return f"🔑 {src} is attempting to remotely access {dst} via SSH."
+    # Regular web browsing
+    elif 'http' in packet and hasattr(packet.http, 'host'):
+        hostname = packet.http.host
+        return f"🌐 {src} is connecting to {hostname} insecurely."
 
-    # Fallback
-    return None
+    # SSH connection
+    elif 'ssh' in packet or (packet.transport_layer == 'TCP' and packet[packet.transport_layer].dstport == '22'):
+        return f"🔑 {src} is attempting to remotely access {dst} via SSH."
+
+    # QUIC or GQUIC connections
+    if 'quic' in packet:
+        layer = packet.quic
+    sni = getattr(layer, 'tag_sni', None)
+
+    if sni:
+        # cache it, so future packets on this 5-tuple can use the name
+        quic_host_cache[(src_ip, dst_ip)] = sni
+        return f"🌀 {src} is connecting to {sni} via QUIC."
+
+    # if we've seen this flow before, use the cached name
+    if (src_ip, dst_ip) in quic_host_cache:
+        name = quic_host_cache[(src_ip, dst_ip)]
+        return f"🌀 {src} is connecting to {name} via QUIC."
+
+    # first packet, no SNI, no cache → fallback to IP
+    return f"🌀 {src} is connecting to {dst} via QUIC."
 
 
 # Start sniffing packets
