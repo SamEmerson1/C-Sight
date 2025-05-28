@@ -1,53 +1,36 @@
+import socket
 import pyshark
+import psutil
 
-# Human-readable label matcher (basic keyword check)
-def categorize_hostname(hostname):
-    keyword_map = {
-        "youtube.com": "Streaming",
-        "netflix.com": "Streaming",
-        "google.com": "Search",
-        "gstatic.com": "Google Services",
-        "googleusercontent.com": "Google Cloud",
-        "microsoft.com": "Productivity",
-        "office365.com": "Productivity",
-        "slack.com": "Communication",
-        "icloud.com": "Apple Cloud",
-        "akamai": "CDN",
-        "github.com": "Developer Platform",
-    }
+def get_active_local_ip():
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family.name == 'AF_INET' and not addr.address.startswith("127."):
+                return addr.address
+    return "127.0.0.1"
 
-    for keyword in keyword_map:
-        if keyword in hostname:
-            return keyword_map[keyword]
-
-    return "Uncategorized"
 
 # Given a PyShark packet, returns a human-readable description
 def format_packet(packet):
     # Check if the packet has an IP layer for sorting
     if 'ip' in packet:
-        src = packet.ip.src
-        dst = packet.ip.dst
-        protocol = packet.highest_layer
+        src = resolve_hostname(packet.ip.src)
+        dst = resolve_hostname(packet.ip.dst)
 
         # Secure web browsing
         if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
             hostname = packet.tls.handshake_extensions_server_name
-            category = categorize_hostname(hostname)
-            return f"🔐 {src} is connecting to {hostname} ({category}) over TLS."
+            return f"🔐 {src} is connecting to {hostname} securely."
 
         # Regular web browsing
         elif 'http' in packet and hasattr(packet.http, 'host'):
             hostname = packet.http.host
-            category = categorize_hostname(hostname)
-            return f"🌐 {src} is browsing {hostname} ({category}) over HTTP."
+            return f"🌐 {src} is connecting to {hostname} insecurely."
+
 
         # SSH connection
         elif 'ssh' in packet or (packet.transport_layer == 'TCP' and packet[packet.transport_layer].dstport == '22'):
-            return f"🔑 {src} is attempting an SSH connection to {dst}."
-        
-        # Catch-all
-        return None
+            return f"🔑 {src} is attempting to remotely access {dst} via SSH."
     
     # Fallback
     return None
@@ -65,6 +48,19 @@ def start_sniff(interface='en0'):
                 print(result)
         except Exception:
             continue
+        
+LOCAL_IP = get_active_local_ip()
+
+def resolve_hostname(ip):
+    local_ip = socket.gethostbyname(socket.gethostname())
+    if ip == LOCAL_IP:
+        return "This device"
+
+    elif ip.startswith("10.") or ip.startswith("192.168."):
+        return "Another device on your network"
+
+    return ip  # Don't even try reverse DNS
+
 
 # Run directly
 if __name__ == "__main__":
