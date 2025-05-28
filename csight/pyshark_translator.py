@@ -5,6 +5,7 @@ from collections import deque
 
 recent_logs = deque(maxlen=10)
 
+
 # Get the local IP address
 def get_active_local_ip():
     for iface, addrs in psutil.net_if_addrs().items():
@@ -12,6 +13,21 @@ def get_active_local_ip():
             if addr.family.name == 'AF_INET' and not addr.address.startswith("127."):
                 return addr.address
     return "127.0.0.1"
+
+
+LOCAL_IP = get_active_local_ip()
+
+
+# Given an IP address, returns its hostname
+def resolve_hostname(ip):
+    local_ip = socket.gethostbyname(socket.gethostname())
+    if ip == LOCAL_IP:
+        return "This device"
+
+    elif ip.startswith("10.") or ip.startswith("192.168."):
+        return "Another device on your network"
+
+    return ip  # Don't even try reverse DNS (too slow)
 
 
 # Given a PyShark packet, returns a human-readable description
@@ -31,13 +47,13 @@ def format_packet(packet):
             hostname = packet.http.host
             return f"🌐 {src} is connecting to {hostname} insecurely."
 
-
         # SSH connection
         elif 'ssh' in packet or (packet.transport_layer == 'TCP' and packet[packet.transport_layer].dstport == '22'):
             return f"🔑 {src} is attempting to remotely access {dst} via SSH."
-    
+
     # Fallback
     return None
+
 
 # Start sniffing packets
 def start_sniff(interface='en0'):
@@ -53,19 +69,6 @@ def start_sniff(interface='en0'):
                 recent_logs.append(result)
         except Exception:
             continue
-        
-LOCAL_IP = get_active_local_ip()
-
-# Given an IP address, returns its hostname
-def resolve_hostname(ip):
-    local_ip = socket.gethostbyname(socket.gethostname())
-    if ip == LOCAL_IP:
-        return "This device"
-
-    elif ip.startswith("10.") or ip.startswith("192.168."):
-        return "Another device on your network"
-
-    return ip  # Don't even try reverse DNS (too slow)
 
 
 # Run directly
