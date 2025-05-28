@@ -1,7 +1,11 @@
 import socket
 import pyshark
 import psutil
+from collections import deque
 
+recent_logs = deque(maxlen=10)
+
+# Get the local IP address
 def get_active_local_ip():
     for iface, addrs in psutil.net_if_addrs().items():
         for addr in addrs:
@@ -44,13 +48,15 @@ def start_sniff(interface='en0'):
     for packet in capture.sniff_continuously():
         try:
             result = format_packet(packet)
-            if result:
+            if result and result not in recent_logs:
                 print(result)
+                recent_logs.append(result)
         except Exception:
             continue
         
 LOCAL_IP = get_active_local_ip()
 
+# Given an IP address, returns its hostname
 def resolve_hostname(ip):
     local_ip = socket.gethostbyname(socket.gethostname())
     if ip == LOCAL_IP:
@@ -59,7 +65,7 @@ def resolve_hostname(ip):
     elif ip.startswith("10.") or ip.startswith("192.168."):
         return "Another device on your network"
 
-    return ip  # Don't even try reverse DNS
+    return ip  # Don't even try reverse DNS (too slow)
 
 
 # Run directly
