@@ -1,95 +1,75 @@
 import socket
 import pyshark
-import psutil
 from collections import deque
 
+# Keeps a short list of recent logs to avoid too many repeat lines.
 recent_logs = deque(maxlen=10)
-quic_host_cache = {}   # map (client_ip, server_ip) → hostname
 
-
-# Get the local IP address
-def get_active_local_ip():
-    for iface, addrs in psutil.net_if_addrs().items():
-        for addr in addrs:
-            if addr.family.name == 'AF_INET' and not addr.address.startswith("127."):
-                return addr.address
-    return "127.0.0.1"
-
-
-LOCAL_IP = get_active_local_ip()
-
-
-# Given an IP address, returns its hostname
+# Just returns the IP address as a string.
 def resolve_hostname(ip):
-    local_ip = socket.gethostbyname(socket.gethostname())
-    if ip == LOCAL_IP:
-        return "This device"
+    return str(ip)
 
-    elif ip.startswith("10.") or ip.startswith("192.168."):
-        return "Another device on your network"
-    return ip  # Don't even try reverse DNS (too slow)
-
-
-# Given a PyShark packet, returns a human-readable description
+# Tries to make a simple, readable line out of a packet.
 def format_packet(packet):
-    # Check if the packet has an IP layer for sorting
+    # Only looking at IP packets.
     if 'ip' not in packet:
-        return
+        return None
 
-    src_ip = packet.ip.src
-    dst_ip = packet.ip.dst
-    src = resolve_hostname(packet.ip.src)
-    dst = resolve_hostname(packet.ip.dst)
+    src_ip = resolve_hostname(packet.ip.src)
+    dst_ip = resolve_hostname(packet.ip.dst)
 
-    # Secure web browsing
+    # TLS (often HTTPS) - uses SNI to get the hostname.
     if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
         hostname = packet.tls.handshake_extensions_server_name
-        return f"🔐 {src} is connecting to {hostname} securely."
+        return f"🔐 TLS: {src_ip} → {hostname}"
 
-    # Regular web browsing
-    elif 'http' in packet and hasattr(packet.http, 'host'):
+    # HTTP - uses the Host header for the website name.
+    if 'http' in packet and hasattr(packet.http, 'host'):
         hostname = packet.http.host
-        return f"🌐 {src} is connecting to {hostname} insecurely."
+        return f"🌐 HTTP: {src_ip} → {hostname}"
 
-    # SSH connection
-    elif 'ssh' in packet or (packet.transport_layer == 'TCP' and packet[packet.transport_layer].dstport == '22'):
-        return f"🔑 {src} is attempting to remotely access {dst} via SSH."
+    # SSH - checks for the protocol or TCP port 22.
+    is_ssh_protocol = 'ssh' in packet
+    is_ssh_port = False
+    if packet.transport_layer == 'TCP':
+        if hasattr(packet.tcp, 'dstport') and packet.tcp.dstport == '22':
+            is_ssh_port = True
+        elif hasattr(packet.tcp, 'srcport') and packet.tcp.srcport == '22': # For SSH server replies
+            is_ssh_port = True
+            
+    if is_ssh_protocol or is_ssh_port:
+        return f"🔑 SSH: {src_ip} → {dst_ip}"
 
-    # QUIC or GQUIC connections
-    if 'quic' in packet:
-        layer = packet.quic
-    sni = getattr(layer, 'tag_sni', None)
-
-    if sni:
-        # cache it, so future packets on this 5-tuple can use the name
-        quic_host_cache[(src_ip, dst_ip)] = sni
-        return f"🌀 {src} is connecting to {sni} via QUIC."
-
-    # if we've seen this flow before, use the cached name
-    if (src_ip, dst_ip) in quic_host_cache:
-        name = quic_host_cache[(src_ip, dst_ip)]
-        return f"🌀 {src} is connecting to {name} via QUIC."
-
-    # first packet, no SNI, no cache → fallback to IP
-    return f"🌀 {src} is connecting to {dst} via QUIC."
+    return None
 
 
-# Start sniffing packets
-def start_sniff(interface='en0'):
-    capture = pyshark.LiveCapture(interface=interface)
-    print("🔍 C-Sight: Listening for traffic...\n")
+# Starts sniffing packets.
+def start_sniff(interface='en0'): # Default interface is 'en0' (common for macOS).
+    # Make sure TShark is installed and your interface name is correct.
+    # You might need admin/sudo rights.
+    try:
+        capture = pyshark.LiveCapture(interface=interface)
+        print(f"🔍 Listening for HTTPS, HTTP, and SSH traffic on {interface}...\n(Press Ctrl+C to stop)\n")
 
-    # Continuously sniff packets (unless interrupted)
-    for packet in capture.sniff_continuously():
-        try:
-            result = format_packet(packet)
-            if result and result not in recent_logs:
-                print(result)
-                recent_logs.append(result)
-        except Exception:
-            continue
+        for packet in capture.sniff_continuously():
+            try:
+                result = format_packet(packet)
+                if result and result not in recent_logs:
+                    print(result)
+                    recent_logs.append(result)
+            except AttributeError:
+                # Some packets might not have all the bits we expect.
+                continue
+            except Exception:
+                # General catch for other packet processing issues.
+                continue
+                
+    except Exception as e: # For issues like wrong interface or permissions.
+        print(f"Error starting capture: {e}")
+        print("Check TShark install, interface name, and permissions.")
 
 
-# Run directly
 if __name__ == "__main__":
+    # !!! IMPORTANT: Change "en0" if that's not your network interface.
+    # Common ones: 'eth0', 'wlan0' (Linux), 'Ethernet', 'Wi-Fi' (Windows).
     start_sniff(interface="en0")
