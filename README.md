@@ -20,7 +20,7 @@
 - [x] Use SNI (for TLS) and Host headers (for HTTP) to extract hostnames
 - [x] Deduplicates recent logs to avoid spammy console output
 - [x] QUIC/UDP detection
-- [ ] DNS traffic interpretation
+- [x] DNS traffic interpretation
 - [ ] Reverse DNS lookups
 - [ ] IPv6 support
 - [ ] Session-level tracking

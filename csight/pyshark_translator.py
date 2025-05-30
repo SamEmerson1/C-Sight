@@ -11,8 +11,6 @@ recent_logs = deque(maxlen=10)
 # Global trie for IP owner lookup
 ip_trie = pytricia.PyTricia()
 
-filename = "ipinfo_lite.json"
-
 
 # Suppress EOFError on shutdown
 def suppress_asyncio_eoferror(loop, context):
@@ -72,6 +70,11 @@ def format_packet(packet):
     if 'http' in packet and hasattr(packet.http, 'host'):
         hostname = packet.http.host
         return f"🌐 HTTP: {src_ip} → {hostname}"
+    
+    # DNS - uses the domain name in the query.
+    if 'dns' in packet and hasattr(packet.dns, 'qry_name'):
+        domain = packet.dns.qry_name
+        return f"🧭 DNS Query: {src_ip} → looking up {domain}"
 
     # SSH - checks for the protocol or TCP port 22.
     is_ssh_protocol = 'ssh' in packet
