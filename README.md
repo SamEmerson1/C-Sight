@@ -19,7 +19,7 @@
 - [x] Watch live local traffic using PyShark
 - [x] Use SNI (for TLS) and Host headers (for HTTP) to extract hostnames
 - [x] Deduplicates recent logs to avoid spammy console output
-- [ ] QUIC/UDP detection
+- [x] QUIC/UDP detection
 - [ ] DNS traffic interpretation
 - [ ] Reverse DNS lookups
 - [ ] IPv6 support
@@ -31,4 +31,5 @@
 
 - Currently building for MacOS
 - Using/Experimenting with PyShark
+- Using IP database from https://ipinfo.io/
 
