@@ -20,7 +20,7 @@
 sudo python3 csight/pyshark_translator.py
 ```
 ---
-### Checklist
+### Checklist (MVP)
 
 - [x] Watch live local traffic using PyShark
 - [x] Use SNI (for TLS) and Host headers (for HTTP) to extract hostnames
@@ -33,9 +33,34 @@ sudo python3 csight/pyshark_translator.py
 - [x] File logging
 
 ---
+### Checklist (V.1 - Security detection)
+
+- [ ] DNS Tunneling patterns
+- [ ] Abnormal QUIC traffic
+- [ ] Access to suspicious domains
+- [ ] Communications with unexpected regions
+- [ ] Frequent DNS failures and NXDOMAIN spikes
+- [ ] Cleartext HTTP usage on sensitive domains
+- [ ] Excessive connections to many unique subdomains
+- [ ] SSH attempts on unusual ports
+- [ ] High-frequency TLS handshakes on new destinations
+- [ ] Anomaly scoring 
+
+---
+### Checklist (V.2 - Usability/clarity)
+
+- [ ] Add domain/IP ignorelist
+- [ ] Log verbosity levels
+- [ ] Human friendly log formatting
+- [ ] Color coded logging
+- [ ] Add definitions/type glossary
+- [ ] Log metadata
+- [ ] Config file
+- [ ] Summary printout
+
+---
 ### Notes
 
 - Currently building for MacOS
 - Using/Experimenting with PyShark
 - Using IP database from https://ipinfo.io/
-
