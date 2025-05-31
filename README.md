@@ -14,7 +14,13 @@
 - Understanding network traffic shouldn't require a CS degree
 - Network security peace of mind is a human right!
 ---
-## Checklist
+### How to Run
+
+```bash
+sudo python3 csight/pyshark_translator.py
+```
+---
+### Checklist
 
 - [x] Watch live local traffic using PyShark
 - [x] Use SNI (for TLS) and Host headers (for HTTP) to extract hostnames
