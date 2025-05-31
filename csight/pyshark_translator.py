@@ -2,6 +2,7 @@ import pyshark
 import pytricia
 import json
 import asyncio
+import aiodns
 from tqdm import tqdm
 from collections import deque
 
@@ -10,6 +11,25 @@ recent_logs = deque(maxlen=10)
 
 # Global trie for IP owner lookup
 ip_trie = pytricia.PyTricia()
+
+# Cache for reverse DNS lookups
+reverse_dns_cache = {}
+
+# Async DNS resolver
+resolver = aiodns.DNSResolver()
+
+
+# Looks up who owns an IP (if known)
+async def reverse_dns(ip):
+    if ip in reverse_dns_cache:
+        return reverse_dns_cache[ip]
+    try:
+        result = await resolver.gethostbyaddr(ip)
+        reverse_dns_cache[ip] = result.name
+        return result.name
+    except Exception:
+        reverse_dns_cache[ip] = None
+        return None
 
 
 # Suppress EOFError on shutdown
@@ -53,7 +73,7 @@ def get_owner_by_ip(ip):
 
 
 # Tries to make a simple, readable line out of a packet.
-def format_packet(packet):
+async def format_packet(packet):
     # Only looking at IP packets.
     if 'ip' not in packet:
         return None
@@ -70,7 +90,7 @@ def format_packet(packet):
     if 'http' in packet and hasattr(packet.http, 'host'):
         hostname = packet.http.host
         return f"🌐 HTTP: {src_ip} → {hostname}"
-    
+
     # DNS - uses the domain name in the query.
     if 'dns' in packet and hasattr(packet.dns, 'qry_name'):
         domain = packet.dns.qry_name
@@ -92,6 +112,10 @@ def format_packet(packet):
     if 'udp' in packet:
         if hasattr(packet.udp, 'dstport') and packet.udp.dstport == '443':
             owner = get_owner_by_ip(dst_ip)
+            if not owner:
+                rdns_name = await reverse_dns(dst_ip)
+                if rdns_name:
+                    return f"🕵️ Reverse DNS: {src_ip} → {dst_ip} ({rdns_name})"
             label = f"{dst_ip} ({owner})" if owner else dst_ip
             return f"🌀 QUIC: {src_ip} → {label} (UDP 443)"
 
@@ -108,31 +132,30 @@ def start_sniff(interface='en0'):
         print(
             f"🔍 Listening for HTTPS, HTTP, SSH and QUIC traffic on {interface}...\n(Press Ctrl+C to stop)\n")
 
-        try:
-            for packet in capture.sniff_continuously():
-                # Set the handler immediately
-                asyncio.get_event_loop().set_exception_handler(suppress_asyncio_eoferror)
-                try:
-                    result = format_packet(packet)
-                    if result and result not in recent_logs:
-                        print(result)
-                        recent_logs.append(result)
-                except AttributeError:
-                    continue
-                except Exception:
-                    continue
+        loop = asyncio.get_event_loop()
+        loop.set_exception_handler(suppress_asyncio_eoferror)
 
-        except KeyboardInterrupt:
-            print("\n🛑 Capture stopped by user (Ctrl+C). Cleaning up...")
-        finally:
+        async def process_packet(packet):
             try:
-                capture.close()
+                result = await format_packet(packet)
+                if result and result not in recent_logs:
+                    print(result)
+                    recent_logs.append(result)
             except Exception:
-                pass  # Suppress EOFError on shutdown
+                pass
 
+        for packet in capture.sniff_continuously():
+            try:
+                asyncio.ensure_future(process_packet(packet))
+            except KeyboardInterrupt:
+                break
+
+    except KeyboardInterrupt:
+        print("\n🛑 Capture stopped by user (Ctrl+C). Cleaning up...")
     except Exception as e:
         print(f"❌ Error starting capture: {e}")
         print("Check TShark install, interface name, and permissions.")
+
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@
 - [x] Deduplicates recent logs to avoid spammy console output
 - [x] QUIC/UDP detection
 - [x] DNS traffic interpretation
-- [ ] Reverse DNS lookups
+- [x] Reverse DNS lookups
 - [ ] IPv6 support
 - [ ] Session-level tracking
 - [ ] File logging
