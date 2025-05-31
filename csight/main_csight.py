@@ -1,5 +1,5 @@
 from scapy.all import sniff, IP, TCP, UDP, ICMP
-from csight.scrapy_translator import translate
+from scrapy_translator import translate
 
 
 # Runs for each captured packet. Filters only IP traffic.
