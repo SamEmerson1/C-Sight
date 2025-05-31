@@ -253,14 +253,26 @@ def start_sniff(interface='en0'):
 def prompt_save_log():
     choice = input("💾 Save log to file? (y/n): ").strip().lower()
     if choice == 'y':
-        # Create the "logs" directory if it doesn't exist
-        os.makedirs("logs", exist_ok=True)
-        
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"logs/log_{timestamp}.txt"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write("\n".join(session_logs))
-        print(f"✅ Log saved to {filename}")
+        # Drop root if running under sudo
+        is_sudo = os.geteuid() == 0 and "SUDO_UID" in os.environ
+        if is_sudo:
+            real_uid = int(os.environ["SUDO_UID"])
+            real_gid = int(os.environ["SUDO_GID"])
+            os.setegid(real_gid)
+            os.seteuid(real_uid)
+
+        try:
+            os.makedirs("logs", exist_ok=True)
+
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            filename = f"logs/log_{timestamp}.txt"
+
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("\n".join(session_logs))
+
+            print(f"✅ Log saved to {filename}")
+        except Exception as e:
+            print(f"❌ Failed to save log: {e}")
     else:
         print("🚫 Log not saved.")
 
