@@ -2,13 +2,11 @@ import pyshark
 import pytricia
 import json
 import ipaddress
+import time
 import asyncio
 import aiodns
 from tqdm import tqdm
-from collections import deque
 
-# Keeps a short list of recent logs to avoid too many repeat lines.
-recent_logs = deque(maxlen=10)
 
 # Global trie for IP owner lookup
 pt4 = pytricia.PyTricia(32)   # for IPv4
@@ -19,6 +17,54 @@ reverse_dns_cache = {}
 
 # Async DNS resolver
 resolver = aiodns.DNSResolver()
+
+# Stores recent sessions to suppress duplicate logs
+# key: (src_ip, dst_ip, port, protocol)
+# value: last_seen timestamp
+active_sessions = {}
+SESSION_TTL = 60  # seconds
+
+# DNS-specific session tracking
+active_dns_queries = {}
+DNS_SESSION_TTL = 10  # seconds
+
+
+# Checks if a session is new
+def is_new_session(src_ip, dst_ip, port, protocol):
+    now = time.time()
+    key = (src_ip, dst_ip, port, protocol)
+
+    # Remove expired sessions
+    expired_keys = [k for k, v in active_sessions.items()
+                    if now - v > SESSION_TTL]
+    for k in expired_keys:
+        del active_sessions[k]
+
+    # Check if session is new
+    if key in active_sessions:
+        return False  # Already seen
+    else:
+        active_sessions[key] = now
+        return True
+
+
+# Checks if a DNS query is new
+def is_new_dns_query(src_ip, domain):
+    now = time.time()
+    key = (src_ip, domain, "DNS")
+
+    # Remove expired DNS entries
+    expired_keys = [k for k, v in active_dns_queries.items()
+                    if now - v > DNS_SESSION_TTL]
+    for k in expired_keys:
+        del active_dns_queries[k]
+
+    # Check if this domain lookup was already logged
+    if key in active_dns_queries:
+        return False
+    else:
+        active_dns_queries[key] = now
+        return True
 
 
 # Looks up who owns an IP (if known)
@@ -96,17 +142,20 @@ async def format_packet(packet):
     # TLS (often HTTPS) - uses SNI to get the hostname.
     if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
         hostname = packet.tls.handshake_extensions_server_name
-        return f"🔐 TLS: {src_ip} → {hostname}"
+        if is_new_session(src_ip, dst_ip, 443, "TLS"):
+            return f"🔐 TLS: {src_ip} → {hostname}"
 
     # HTTP - uses the Host header for the website name.
     if 'http' in packet and hasattr(packet.http, 'host'):
         hostname = packet.http.host
-        return f"🌐 HTTP: {src_ip} → {hostname}"
+        if is_new_session(src_ip, dst_ip, 80, "HTTP"):
+            return f"🌐 HTTP: {src_ip} → {hostname}"
 
     # DNS - uses the domain name in the query.
     if 'dns' in packet and hasattr(packet.dns, 'qry_name'):
         domain = packet.dns.qry_name
-        return f"🧭 DNS Query: {src_ip} → looking up {domain}"
+        if is_new_dns_query(src_ip, domain):
+            return f"🧭 DNS Query: {src_ip} → looking up {domain}"
 
     # SSH - checks for the protocol or TCP port 22.
     is_ssh_protocol = 'ssh' in packet
@@ -118,7 +167,8 @@ async def format_packet(packet):
             is_ssh_port = True
 
     if is_ssh_protocol or is_ssh_port:
-        return f"🔑 SSH: {src_ip} → {dst_ip}"
+        if is_new_session(src_ip, dst_ip, 22, "SSH"):
+            return f"🔑 SSH: {src_ip} → {dst_ip}"
 
     # QUIC - often used for HTTP/3, encrypted, usually on UDP port 443.
     if 'udp' in packet:
@@ -129,7 +179,8 @@ async def format_packet(packet):
                 if rdns_name:
                     return f"🕵️ Reverse DNS: {src_ip} → {dst_ip} ({rdns_name})"
             label = f"{dst_ip} ({owner})" if owner else dst_ip
-            return f"🌀 QUIC: {src_ip} → {label} (UDP 443)"
+            if is_new_session(src_ip, dst_ip, 443, "QUIC"):
+                return f"🌀 QUIC: {src_ip} → {label} (UDP 443)"
 
     return None
 
@@ -146,13 +197,27 @@ def start_sniff(interface='en0'):
 
         loop = asyncio.get_event_loop()
         loop.set_exception_handler(suppress_asyncio_eoferror)
+        
+        last_log_time = time.time()
+        packet_counter = 0
+        
+        async def heartbeat():
+            while True:
+                await asyncio.sleep(10)
+                since = int(time.time() - last_log_time)
+                print(f"📡 Still listening... ({since}s since last packet, total: {packet_counter})")
 
+        loop.create_task(heartbeat())
+
+        # Processes each packet.
         async def process_packet(packet):
+            nonlocal last_log_time, packet_counter
             try:
                 result = await format_packet(packet)
-                if result and result not in recent_logs:
+                if result:
                     print(result)
-                    recent_logs.append(result)
+                    last_log_time = time.time()
+                    packet_counter += 1
             except Exception:
                 pass
 

@@ -23,7 +23,7 @@
 - [x] DNS traffic interpretation
 - [x] Reverse DNS lookups
 - [x] IPv6 support
-- [ ] Session-level tracking
+- [x] Session-level tracking
 - [ ] File logging
 - [ ] Differing levels of log complexity
 ---
