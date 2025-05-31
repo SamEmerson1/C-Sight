@@ -24,8 +24,8 @@
 - [x] Reverse DNS lookups
 - [x] IPv6 support
 - [x] Session-level tracking
-- [ ] File logging
-- [ ] Differing levels of log complexity
+- [x] File logging
+
 ---
 ### Notes
 

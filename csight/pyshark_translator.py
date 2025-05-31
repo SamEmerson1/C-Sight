@@ -1,8 +1,10 @@
+import os
 import pyshark
 import pytricia
 import json
 import ipaddress
 import time
+import datetime
 import asyncio
 import aiodns
 from tqdm import tqdm
@@ -27,6 +29,10 @@ SESSION_TTL = 60  # seconds
 # DNS-specific session tracking
 active_dns_queries = {}
 DNS_SESSION_TTL = 10  # seconds
+
+
+# Stores all formatted log lines
+session_logs = []
 
 
 # Checks if a session is new
@@ -197,17 +203,18 @@ def start_sniff(interface='en0'):
 
         loop = asyncio.get_event_loop()
         loop.set_exception_handler(suppress_asyncio_eoferror)
-        
+
         last_log_time = time.time()
         packet_counter = 0
-        
+
         async def heartbeat():
             while True:
                 await asyncio.sleep(10)
                 since = int(time.time() - last_log_time)
-                print(f"📡 Still listening... ({since}s since last packet, total: {packet_counter})")
+                print(
+                    f"📡 Still listening... ({since}s since last packet, total: {packet_counter})")
 
-        loop.create_task(heartbeat())
+        heartbeat_task = loop.create_task(heartbeat())
 
         # Processes each packet.
         async def process_packet(packet):
@@ -216,6 +223,7 @@ def start_sniff(interface='en0'):
                 result = await format_packet(packet)
                 if result:
                     print(result)
+                    session_logs.append(result)
                     last_log_time = time.time()
                     packet_counter += 1
             except Exception:
@@ -229,9 +237,32 @@ def start_sniff(interface='en0'):
 
     except KeyboardInterrupt:
         print("\n🛑 Capture stopped by user (Ctrl+C). Cleaning up...")
+        heartbeat_task.cancel()
+        try:
+            loop.run_until_complete(heartbeat_task)
+        except asyncio.CancelledError:
+            pass
+        prompt_save_log()
+
     except Exception as e:
         print(f"❌ Error starting capture: {e}")
         print("Check TShark install, interface name, and permissions.")
+
+
+# Asks the user if they want to save the log to a file.
+def prompt_save_log():
+    choice = input("💾 Save log to file? (y/n): ").strip().lower()
+    if choice == 'y':
+        # Create the "logs" directory if it doesn't exist
+        os.makedirs("logs", exist_ok=True)
+        
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"logs/log_{timestamp}.txt"
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("\n".join(session_logs))
+        print(f"✅ Log saved to {filename}")
+    else:
+        print("🚫 Log not saved.")
 
 
 if __name__ == "__main__":
