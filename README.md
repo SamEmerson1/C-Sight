@@ -37,7 +37,7 @@ sudo python3 csight/pyshark_translator.py
 ### Checklist (V.1 - Security detection)
 
 - [x] DNS Tunneling patterns
-- [ ] Abnormal QUIC traffic
+- [x] Abnormal QUIC traffic
 - [ ] Access to suspicious domains
 - [ ] Communications with unexpected regions
 - [ ] Frequent DNS failures and NXDOMAIN spikes
