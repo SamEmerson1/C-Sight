@@ -22,7 +22,7 @@
 - [x] QUIC/UDP detection
 - [x] DNS traffic interpretation
 - [x] Reverse DNS lookups
-- [ ] IPv6 support
+- [x] IPv6 support
 - [ ] Session-level tracking
 - [ ] File logging
 - [ ] Differing levels of log complexity

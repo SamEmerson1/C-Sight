@@ -1,6 +1,7 @@
 import pyshark
 import pytricia
 import json
+import ipaddress
 import asyncio
 import aiodns
 from tqdm import tqdm
@@ -10,7 +11,8 @@ from collections import deque
 recent_logs = deque(maxlen=10)
 
 # Global trie for IP owner lookup
-ip_trie = pytricia.PyTricia()
+pt4 = pytricia.PyTricia(32)   # for IPv4
+pt6 = pytricia.PyTricia(128)  # for IPv6
 
 # Cache for reverse DNS lookups
 reverse_dns_cache = {}
@@ -54,11 +56,14 @@ def load_ip_owners(filepath="ipinfo_lite.json"):
                     org = entry.get("as_name", "Unknown Org")
                     domain = entry.get("as_domain", "unknown.com")
                     label = f"{org} ({domain})"
-                    ip_trie[network] = label
-                except Exception:
-                    continue  # Skip malformed lines
+                    parsed = ipaddress.ip_network(network, strict=False)
+                    if parsed.version == 4:
+                        pt4[network] = label
+                    else:
+                        pt6[network] = label
 
-        print(f"\n✅ Loaded {len(ip_trie)} IP ownership entries.")
+                except Exception as e:
+                    continue
 
     except Exception as e:
         print(f"❌ Error loading IP data: {e}")
@@ -67,19 +72,26 @@ def load_ip_owners(filepath="ipinfo_lite.json"):
 # Looks up who owns an IP (if known)
 def get_owner_by_ip(ip):
     try:
-        return ip_trie[ip]
-    except KeyError:
+        parsed = ipaddress.ip_address(ip)
+        if parsed.version == 4:
+            return pt4.get(ip)
+        else:
+            return pt6.get(ip)
+    except Exception:
         return None
 
 
 # Tries to make a simple, readable line out of a packet.
 async def format_packet(packet):
-    # Only looking at IP packets.
-    if 'ip' not in packet:
+    # Only looking at IP (4 and 6) packets.
+    if 'ip' in packet:
+        src_ip = packet.ip.src
+        dst_ip = packet.ip.dst
+    elif 'ipv6' in packet:
+        src_ip = packet.ipv6.src
+        dst_ip = packet.ipv6.dst
+    else:
         return None
-
-    src_ip = packet.ip.src
-    dst_ip = packet.ip.dst
 
     # TLS (often HTTPS) - uses SNI to get the hostname.
     if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
@@ -155,7 +167,6 @@ def start_sniff(interface='en0'):
     except Exception as e:
         print(f"❌ Error starting capture: {e}")
         print("Check TShark install, interface name, and permissions.")
-
 
 
 if __name__ == "__main__":
