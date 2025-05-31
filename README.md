@@ -17,6 +17,7 @@
 ### How to Run
 
 ```bash
+cd csight # (initially)
 sudo python3 csight/pyshark_translator.py
 ```
 ---
