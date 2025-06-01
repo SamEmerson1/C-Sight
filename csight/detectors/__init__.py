@@ -5,6 +5,7 @@ from .malicious_url_access import detect as malicious_url_detect
 from .unexpected_regions import detect as unexpected_region_detect
 from .frequent_nxdomain import detect as nxdomain_spike_detect
 from .sensitive_cleartext import detect as sensitive_cleartext_detect
+from .excessive_tls import detect as excessive_tls_detect
 
 
 # List of all detectors we want to run (add new detectors here later):
@@ -15,5 +16,6 @@ ALL_DETECTORS = [
     unexpected_region_detect,
     nxdomain_spike_detect,
     sensitive_cleartext_detect,
+    excessive_tls_detect,
     # add other detectors here
 ]
