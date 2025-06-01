@@ -1,4 +1,5 @@
 from detectors import ALL_DETECTORS    # Detector registry
+from ignorelist import should_ignore
 import os
 import pyshark
 import pytricia
@@ -154,7 +155,7 @@ def build_packet_info(packet):
     # DNS:
     if 'dns' in packet and hasattr(packet.dns, 'qry_name'):
         info['protocol'] = "DNS"
-        info['query_name'] = packet.dns.qry_name  # e.g. "example.com"
+        info['dns_query'] = packet.dns.qry_name  # e.g. "example.com"
         # Convert DNS record type to text
         info['record_type'] = (
             packet.dns.qry_type
@@ -257,6 +258,9 @@ async def format_packet(packet):
 
     # Build packet_info (for the detectors)
     packet_info = build_packet_info(packet)
+    
+    if should_ignore(packet_info):
+        return None
 
     # Run ALL_DETECTORS on this packet_info
     for detect_fn in ALL_DETECTORS:

@@ -20,6 +20,7 @@ TRUSTED_DOMAINS = {
     "storage.googleapis.com",
     "s3.amazonaws.com",
     "github.com",
+    "docs.google.com",
     # Add more safe domains here
 }
 

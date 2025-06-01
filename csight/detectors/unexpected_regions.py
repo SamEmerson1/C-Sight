@@ -20,7 +20,7 @@ geoname_to_country = {}
 
 # Whitelist of allowed countries
 # Add/adjust to your needs
-TRUSTED_COUNTRIES = {"US", "CA", "GB", "DE", "AU"}
+TRUSTED_COUNTRIES = {"US", "CA", "GB", "DE", "AU", "NL", "IE"}
 
 # Store last alert time per IP
 last_alert_time = {}

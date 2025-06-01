@@ -49,7 +49,7 @@ sudo python3 csight/pyshark_translator.py
 ---
 ### Checklist (V.2 - Usability/clarity)
 
-- [ ] Add domain/IP ignorelist
+- [x] Add domain/IP ignorelist
 - [ ] Log verbosity levels
 - [ ] Human friendly log formatting
 - [ ] Color coded logging
