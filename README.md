@@ -45,7 +45,6 @@ sudo python3 csight/pyshark_translator.py
 - [x] High volume of unique TLS destinations
 - [x] SSH attempts on unusual ports
 - [x] High-frequency TLS handshakes on new destinations
-- [ ] Anomaly scoring 
 
 ---
 ### Checklist (V.2 - Usability/clarity)
@@ -58,6 +57,7 @@ sudo python3 csight/pyshark_translator.py
 - [ ] Log metadata
 - [ ] Config file
 - [ ] Summary printout
+- [ ] Anomaly scoring 
 
 ---
 ### Notes
@@ -68,4 +68,4 @@ sudo python3 csight/pyshark_translator.py
 - Malicious url database from https://urlhaus.abuse.ch/ (05/31/25)
 - IP location database(s) from https://dev.maxmind.com/ (06/01/25)
 - Frequent NXDOMAIN detection is weird, because DNS responses without monitor mode can be missed
-- TLS handshake rate and excessive TLS differ accounting rate vs. accounting size, they compliment one another
+- TLS handshake rate and excessive TLS differ accounting rate vs. accounting scope, they compliment one another
