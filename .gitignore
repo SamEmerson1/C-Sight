@@ -176,5 +176,8 @@ cython_debug/
 # IP database
 csight/ipinfo_lite.json
 
+# Malicious URL database
+csight/detectors/urlhaus.abuse.ch.json
+
 # Log folder
 logs/

@@ -38,7 +38,7 @@ sudo python3 csight/pyshark_translator.py
 
 - [x] DNS Tunneling patterns
 - [x] Abnormal QUIC traffic
-- [ ] Access to suspicious domains
+- [x] Access to malicious domains
 - [ ] Communications with unexpected regions
 - [ ] Frequent DNS failures and NXDOMAIN spikes
 - [ ] Cleartext HTTP usage on sensitive domains
@@ -64,4 +64,5 @@ sudo python3 csight/pyshark_translator.py
 
 - Currently building for MacOS
 - Using/Experimenting with PyShark
-- Using IP database from https://ipinfo.io/
+- Using IP database from https://ipinfo.io/ (05/29/25)
+- Malicious url database from https://urlhaus.abuse.ch/ (05/31/25)

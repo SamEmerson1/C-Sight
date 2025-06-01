@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 # Settings
 WINDOW_SECONDS = 60
-MAX_UNIQUE_DESTINATIONS = 30
+MAX_UNIQUE_DESTINATIONS = 40
 
 # Tracks per-source IP QUIC destinations in a sliding window
 quic_history = defaultdict(lambda: deque())
