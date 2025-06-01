@@ -179,5 +179,10 @@ csight/ipinfo_lite.json
 # Malicious URL database
 csight/detectors/urlhaus.abuse.ch.json
 
+# IP location database(s)
+csight/detectors/GeoLite2-Country-Blocks-IPv4.csv
+csight/detectors/GeoLite2-Country-Blocks-IPv6.csv
+csight/detectors/GeoLite2-Country-Locations-en.csv
+
 # Log folder
 logs/

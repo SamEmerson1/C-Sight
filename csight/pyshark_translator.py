@@ -255,21 +255,19 @@ async def format_packet(packet):
             if is_new_session(src_ip, dst_ip, 443, "QUIC"):
                 basic_log = f"🌀 QUIC: {src_ip} → {label} (UDP 443)"
 
-    # 6) Build packet_info (for the detectors)
+    # Build packet_info (for the detectors)
     packet_info = build_packet_info(packet)
 
-    # 7) Run ALL_DETECTORS on this packet_info
+    # Run ALL_DETECTORS on this packet_info
     for detect_fn in ALL_DETECTORS:
         try:
             alert = detect_fn(packet_info)
             if alert:
                 print(alert)
-                # If you only want one alert per packet, uncomment:
-                # break
         except Exception as e:
             print(f"⚠️ DETECTOR ERROR [{detect_fn.__module__}]: {e}")
 
-    # 8) Return the basic log line (if any), so the caller can print it
+    # Return the basic log line (if any), so the caller can print it
     return basic_log
 
 
