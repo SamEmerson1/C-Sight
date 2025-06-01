@@ -6,15 +6,15 @@
 
 - Sniffs packets from your local Wi-Fi/LAN traffic
 - Translates traffic into human-readable summaries.
----
+
 ## Reason
 
 - To improve network visibility for users without technical backgrounds (e.g. C-suite)
 - Also good for training and security awareness
 - Understanding network traffic shouldn't require a CS degree
 - Network security peace of mind is a human right!
----
-### How to Run
+
+## Starting
 
 ```bash
 cd csight # (initially)
