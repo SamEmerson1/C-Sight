@@ -1,23 +1,32 @@
 from typing import Optional, Dict
+from config import load_config
+
+CONFIG = load_config()
+
+DETECTOR_CONFIG = CONFIG.get("detectors", {}).get("ssh_unusual_ports", {})
 
 # Define known safe SSH ports (if any)
-KNOWN_SSH_PORTS = {22}
+KNOWN_SSH_PORTS = set(DETECTOR_CONFIG.get("known_ssh_ports", []))
 
 
 # === MAIN FUNCTION ===
 # Each detector must override this function
 # Returns a warning string if we are getting a weird SSH port connection, else None
-def detect(packet_info: Dict) -> Optional[str]:
-    if packet_info.get("protocol") != "SSH":
+if not DETECTOR_CONFIG.get("enabled", True):
+    def detect(packet_info: Dict) -> Optional[str]:
         return None
+else:
+    def detect(packet_info: Dict) -> Optional[str]:
+        if packet_info.get("protocol") != "SSH":
+            return None
 
-    src_port = int(packet_info.get("src_port", -1))
-    dst_port = int(packet_info.get("dst_port", -1))
+        src_port = int(packet_info.get("src_port", -1))
+        dst_port = int(packet_info.get("dst_port", -1))
 
-    if src_port not in KNOWN_SSH_PORTS and dst_port not in KNOWN_SSH_PORTS:
-        return f"🚨 SSH traffic on unusual port! {packet_info['src_ip']}:{src_port} → {packet_info['dst_ip']}:{dst_port}"
+        if src_port not in KNOWN_SSH_PORTS and dst_port not in KNOWN_SSH_PORTS:
+            return f"🚨 SSH traffic on unusual port! {packet_info['src_ip']}:{src_port} → {packet_info['dst_ip']}:{dst_port}"
 
-    return None
+        return None
 
 # Another quick test to make sure it's working
 # Uncomment to test

@@ -1,4 +1,10 @@
-def load_ignorelist(filepath="ignorelist.txt") -> set:
+from config import load_config
+
+CONFIG = load_config()
+
+FILEPATH = CONFIG.get("ignorelist", "ignorelist.txt")
+
+def load_ignorelist(filepath=FILEPATH) -> set:
     try:
         with open(filepath, "r") as f:
             return {line.strip() for line in f if line.strip()}

@@ -1,5 +1,7 @@
 from detectors import ALL_DETECTORS    # Detector registry
-from ignorelist import should_ignore
+from ignorelist import should_ignore   # Ignore list
+from config import load_config         # Configuration
+
 import os
 import pyshark
 import pytricia
@@ -11,6 +13,14 @@ import asyncio
 import aiodns
 from tqdm import tqdm
 
+# Global config
+CONFIG = load_config()
+
+# Interface name
+# Default interface is 'en0' (common for macOS).
+# !!! IMPORTANT: Change "en0" if that's not your network interface.
+# Common ones: 'eth0', 'wlan0' (Linux), 'Ethernet', 'Wi-Fi' (Windows).
+INTERFACE = CONFIG.get("interface", "en0")
 
 # Global trie for IP owner lookup
 pt4 = pytricia.PyTricia(32)   # for IPv4
@@ -26,11 +36,11 @@ resolver = aiodns.DNSResolver()
 # key: (src_ip, dst_ip, port, protocol)
 # value: last_seen timestamp
 active_sessions = {}
-SESSION_TTL = 60  # seconds
+SESSION_TTL = CONFIG.get("session_ttl", 60)  # seconds
 
 # DNS-specific session tracking
 active_dns_queries = {}
-DNS_SESSION_TTL = 10  # seconds
+DNS_SESSION_TTL = CONFIG.get("dns_session_ttl", 10)  # seconds
 
 # Stores all formatted log lines
 session_logs = []
@@ -258,7 +268,7 @@ async def format_packet(packet):
 
     # Build packet_info (for the detectors)
     packet_info = build_packet_info(packet)
-    
+
     if should_ignore(packet_info):
         return None
 
@@ -276,8 +286,7 @@ async def format_packet(packet):
 
 
 # Starts sniffing packets.
-# Default interface is 'en0' (common for macOS).
-def start_sniff(interface='en0'):
+def start_sniff(interface=INTERFACE):
     # Make sure TShark is installed and your interface name is correct.
     # You might need admin/sudo rights.
     try:
@@ -362,7 +371,5 @@ def prompt_save_log():
 
 
 if __name__ == "__main__":
-    # !!! IMPORTANT: Change "en0" if that's not your network interface.
-    # Common ones: 'eth0', 'wlan0' (Linux), 'Ethernet', 'Wi-Fi' (Windows).
     load_ip_owners("ipinfo_lite.json")
-    start_sniff(interface="en0")
+    start_sniff(interface=INTERFACE)

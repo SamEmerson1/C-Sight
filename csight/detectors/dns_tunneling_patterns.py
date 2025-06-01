@@ -2,6 +2,26 @@ import time
 import math
 from collections import defaultdict, deque
 from typing import Dict, Optional
+from config import load_config
+
+CONFIG = load_config()
+
+DETECTOR_CONFIG = CONFIG.get("detectors", {}).get("dns_tunneling_patterns", {})
+
+# Detector constants
+# Any single DNS label longer than this is suspicious
+MAX_LABEL_LENGTH = DETECTOR_CONFIG.get("label_length", 50)
+# Full domain longer than this is suspicious
+MAX_DOMAIN_LENGTH = DETECTOR_CONFIG.get("domain_length", 200)
+# Shannon entropy above this for the subdomain is suspect
+ENTROPY_THRESHOLD = DETECTOR_CONFIG.get("entropy_threshold", 4.0)
+# Number of DNS queries per minute to the same root
+QUERY_RATE_THRESHOLD = DETECTOR_CONFIG.get("rate_threshold", 20)
+# Time window (in seconds) for rate counting
+WINDOW_SECONDS = DETECTOR_CONFIG.get("window", 60)
+# DNS record types we care about
+ALLOWED_RECORD_TYPES = DETECTOR_CONFIG.get(
+    "allowed_record_types", ["A", "AAAA", "CNAME", "MX", "NS", "TXT", "HTTPS"])
 
 # Common DNS type codes
 DNS_TYPE_MAP = {
@@ -16,19 +36,15 @@ DNS_TYPE_MAP = {
     "65":  "HTTPS",
 }
 
-# Detector constants
-MAX_LABEL_LENGTH = 50        # any single DNS label longer than this is suspicious
-MAX_DOMAIN_LENGTH = 200      # full domain longer than this is suspicious
-ENTROPY_THRESHOLD = 4.0      # Shannon entropy above this for the subdomain is suspect
-QUERY_RATE_THRESHOLD = 20    # number of DNS queries per minute to the same root
-WINDOW_SECONDS = 60          # time window (in seconds) for rate counting
-ALLOWED_RECORD_TYPES = {"A", "AAAA", "CNAME", "MX", "NS", "TXT", "HTTPS"}
+# DNS roots relevant to ignore
+TRUSTED_DOH_ROOTS = set(DETECTOR_CONFIG.get("trusted_doh_roots", []))
 
+# Tracks per-source IP per-root DNS queries in a sliding window
 query_history = defaultdict(lambda: defaultdict(lambda: deque()))
 
 
 # Shannon entropy - https://en.wikipedia.org/wiki/Entropy_(information_theory)
-# Basically measures the randomness of a string (12dtashj.example.com vs login.example.com)
+# Basically measures the randomness of a string (12dtashj.example.com > login.example.com)
 def shannon_entropy(s: str) -> float:
     if not s:
         return 0.0
@@ -86,14 +102,6 @@ def is_suspicious_dns(domain: str, record_type: str) -> bool:
     return False
 
 
-# Small set of DNS roots relevant for me to ignore
-TRUSTED_DOH_ROOTS = {
-    "xfinity.com",
-    "cloudflare-dns.com",
-    # add/remove as needed
-}
-
-
 # Returns True if we've seen more than QUERY_RATE_THRESHOLD in the last WINDOW_SECONDS
 def is_high_query_rate(src_ip: str, root: str) -> bool:
     # ignore trusted DNS roots
@@ -109,7 +117,7 @@ def is_high_query_rate(src_ip: str, root: str) -> bool:
 
     # add current timestamp
     dq.append(now)
-    
+
     # if we've seen more than QUERY_RATE_THRESHOLD in the last WINDOW_SECONDS
     if len(dq) > QUERY_RATE_THRESHOLD:
         return True
@@ -119,29 +127,37 @@ def is_high_query_rate(src_ip: str, root: str) -> bool:
 # === MAIN FUNCTION ===
 # Each detector must override this function
 # Returns a warning string if we think it’s a tunnel, else None
-def detect(packet_info: Dict) -> Optional[str]:
-    src_ip = packet_info.get("src_ip")
-    domain = packet_info.get("query_name", "").lower().strip(".")
-
-    # Normalize record_type (map numeric codes back to letters)
-    _raw_type = packet_info.get("record_type", "").strip()
-    if _raw_type.isdigit():
-        record_type = DNS_TYPE_MAP.get(_raw_type, f"UNKNOWN({_raw_type})")
-    else:
-        record_type = _raw_type.upper()
-
-    if not src_ip or not domain:
+if not DETECTOR_CONFIG.get("enabled", True):
+    def detect(packet_info: Dict) -> Optional[str]:
         return None
+else:
+    def detect(packet_info: Dict) -> Optional[str]:
+        src_ip = packet_info.get("src_ip")
+        domain = packet_info.get("dns_query", "").lower().strip(".")
 
-    # Split into sublabels, root, and all labels
-    sub_labels, root, _ = split_labels(domain)
+        # Normalize record_type (map numeric codes back to letters)
+        _raw_type = packet_info.get("record_type", "").strip()
+        if _raw_type.isdigit():
+            record_type = DNS_TYPE_MAP.get(_raw_type, f"UNKNOWN({_raw_type})")
+        else:
+            record_type = _raw_type.upper()
 
-    # Rate‐based detection
-    if is_high_query_rate(src_ip, root):
-        return f"⚠️ DNS TUNNEL-RATE: {src_ip} → {domain} (over {QUERY_RATE_THRESHOLD} q/min to {root})"
+        if not src_ip or not domain:
+            return None
 
-    # Pattern‐based detection
-    if is_suspicious_dns(domain, record_type):
-        return f"⚠️ DNS TUNNEL-PATTERN: {src_ip} → {domain} ({record_type})"
+        # Split into sublabels, root, and all labels
+        sub_labels, root, _ = split_labels(domain)
 
-    return None
+        alerts = []
+
+        # Rate‐based detection
+        if is_high_query_rate(src_ip, root):
+            alerts.append(
+                f"⚠️ DNS TUNNEL-RATE: {src_ip} → {domain} (over {QUERY_RATE_THRESHOLD} q/min to {root})")
+
+        # Pattern‐based detection
+        if is_suspicious_dns(domain, record_type):
+            alerts.append(
+                f"⚠️ DNS TUNNEL-PATTERN: {src_ip} → {domain} ({record_type})")
+
+        return " | ".join(alerts) if alerts else None
