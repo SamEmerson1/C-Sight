@@ -40,7 +40,7 @@ sudo python3 csight/pyshark_translator.py
 - [x] Abnormal QUIC traffic
 - [x] Access to malicious domains
 - [x] Communications with unexpected regions
-- [ ] Frequent DNS failures and NXDOMAIN spikes
+- [x] Frequent DNS failures and NXDOMAIN spikes
 - [ ] Cleartext HTTP usage on sensitive domains
 - [ ] Excessive connections to many unique subdomains
 - [ ] SSH attempts on unusual ports
@@ -67,3 +67,4 @@ sudo python3 csight/pyshark_translator.py
 - Using IP database from https://ipinfo.io/ (05/29/25)
 - Malicious url database from https://urlhaus.abuse.ch/ (05/31/25)
 - IP location database(s) from https://dev.maxmind.com/ (06/01/25)
+- Frequent NXDOMAIN detection is weird, because DNS responses without monitor mode can be missed
