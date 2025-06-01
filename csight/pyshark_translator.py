@@ -264,6 +264,7 @@ async def format_packet(packet):
             alert = detect_fn(packet_info)
             if alert:
                 print(alert)
+                return
         except Exception as e:
             print(f"⚠️ DETECTOR ERROR [{detect_fn.__module__}]: {e}")
 

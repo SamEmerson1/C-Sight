@@ -1,6 +1,7 @@
 import csv
 import ipaddress
 import os
+import time
 import pytricia
 from typing import Dict, Optional
 
@@ -20,6 +21,10 @@ geoname_to_country = {}
 # Whitelist of allowed countries
 # Add/adjust to your needs
 TRUSTED_COUNTRIES = {"US", "CA", "GB", "DE", "AU"}
+
+# Store last alert time per IP
+last_alert_time = {}
+ALERT_COOLDOWN = 30  # seconds
 
 # Loaded flag
 _loaded = False
@@ -93,6 +98,12 @@ def detect(packet_info: Dict) -> Optional[str]:
         return None
 
     if country and country not in TRUSTED_COUNTRIES:
+        now = time.time()
+        last_seen = last_alert_time.get(dst_ip, 0)
+        if now - last_seen < ALERT_COOLDOWN:
+            return None  # suppress repeat alert
+        last_alert_time[dst_ip] = now
         return f"⚠️ UNEXPECTED REGION: {dst_ip} ({country})"
+
 
     return None

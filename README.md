@@ -41,7 +41,7 @@ sudo python3 csight/pyshark_translator.py
 - [x] Access to malicious domains
 - [x] Communications with unexpected regions
 - [x] Frequent DNS failures and NXDOMAIN spikes
-- [ ] Cleartext HTTP usage on sensitive domains
+- [x] Cleartext HTTP usage on sensitive domains
 - [ ] Excessive connections to many unique subdomains
 - [ ] SSH attempts on unusual ports
 - [ ] High-frequency TLS handshakes on new destinations
