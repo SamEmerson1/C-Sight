@@ -52,12 +52,10 @@ python3 main_csight.py
 - [x] Add domain/IP ignorelist
 - [x] Log verbosity levels
 - [x] Human friendly log formatting
-- [ ] Color coded logging
 - [ ] Add definitions/type glossary
-- [ ] Log metadata
+- [x] Log metadata
 - [x] Config file
 - [ ] Summary printout
-- [ ] Anomaly scoring 
 
 ---
 ### Notes

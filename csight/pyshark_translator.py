@@ -5,6 +5,7 @@ import os
 import pyshark
 import pytricia
 import json
+import platform
 import ipaddress
 import time
 import datetime
@@ -202,7 +203,7 @@ async def format_packet(packet, config):
     session_ttl = config.get("session_ttl", 60)
     dns_session_ttl = config.get("dns_session_ttl", 10)
     user_level = config.get("user_level", 3)
-    
+
     basic_log = None
     # Only looking at IP (4 and 6) packets.
     if 'ip' in packet:
@@ -282,7 +283,7 @@ async def format_packet(packet, config):
 
     # Build packet_info (for the detectors)
     packet_info = build_packet_info(packet)
-    
+
     if not packet_info["protocol"] or packet_info["protocol"] not in protocol_set:
         return None
 
@@ -295,6 +296,7 @@ async def format_packet(packet, config):
             alert = detect_fn(packet_info)
             if alert:
                 print(alert)
+                print("")
         except Exception as e:
             print(f"⚠️ DETECTOR ERROR [{detect_fn.__module__}]: {e}")
 
@@ -326,13 +328,16 @@ def run_sniffer(config):
     # Make sure TShark is installed and your interface name is correct.
     # You might need admin/sudo rights.
     try:
-        capture = pyshark.LiveCapture(interface=interface, bpf_filter=get_bpf_filter(config["enabled_protocols"]))
-        print(f"🔍 Listening for traffic on {interface}...\n(Press Ctrl+C to stop)\n")
+        capture = pyshark.LiveCapture(
+            interface=interface, bpf_filter=get_bpf_filter(config["enabled_protocols"]))
+        print(
+            f"🔍 Listening for traffic on {interface}...\n(Press Ctrl+C to stop)\n")
 
         loop = asyncio.get_event_loop()
         loop.set_exception_handler(suppress_asyncio_eoferror)
 
         last_log_time = time.time()
+        session_start_time = last_log_time
         packet_counter = 0
 
         async def heartbeat():
@@ -340,7 +345,7 @@ def run_sniffer(config):
                 await asyncio.sleep(10)
                 since = int(time.time() - last_log_time)
                 print(
-                    f"📡 Still listening... ({since}s since last packet, total: {packet_counter})")
+                    f"📡 Still listening... [idles {since}s | total {packet_counter}]\n")
 
         heartbeat_task = loop.create_task(heartbeat())
 
@@ -354,6 +359,7 @@ def run_sniffer(config):
                     session_logs.append(result)
                     last_log_time = time.time()
                     packet_counter += 1
+                    print("")
             except Exception:
                 pass
 
@@ -370,15 +376,32 @@ def run_sniffer(config):
             loop.run_until_complete(heartbeat_task)
         except asyncio.CancelledError:
             pass
-        prompt_save_log()
+        prompt_save_log(config, session_start_time, packet_counter)
 
     except Exception as e:
         print(f"❌ Error starting capture: {e}")
         print("Check TShark install, interface name, and permissions.")
 
 
+# Build log metadata
+def build_log_metadata(config, session_start_time, packet_count):
+    return [
+        "# === C-Sight Network Session Log ===",
+        f"Timestamp:      {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Session Length: {str(datetime.timedelta(seconds=int(time.time() - session_start_time)))}",
+        f"User Level:     {config.get('user_level', '?')}",
+        f"Protocols:      {', '.join(config.get('enabled_protocols', []))}",
+        f"Detectors:      {', '.join([fn.__module__.split('.')[-1] for fn in ALL_DETECTORS])}",
+        f"Device:         {platform.node()} ({platform.system()} {platform.release()})",
+        f"Interface:      {config.get('interface', 'unknown')}",
+        f"Packets Seen:   {packet_count}",
+        "-" * 50,
+        ""
+    ]
+
+
 # Asks the user if they want to save the log to a file.
-def prompt_save_log():
+def prompt_save_log(config, session_start_time, packet_count):
     choice = input("💾 Save log to file? (y/n): ").strip().lower()
     if choice == 'y':
         # Drop root if running under sudo
@@ -396,7 +419,8 @@ def prompt_save_log():
             filename = f"logs/log_{timestamp}.txt"
 
             with open(filename, "w", encoding="utf-8") as f:
-                f.write("\n".join(session_logs))
+                metadata = build_log_metadata(config, session_start_time, packet_count)
+                f.write("\n".join(metadata + session_logs))
 
             print(f"✅ Log saved to {filename}")
         except Exception as e:

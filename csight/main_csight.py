@@ -53,9 +53,9 @@ def apply_level(config, level, include_ip_owners=False):
             print(f"   - {d}")
     print(f"Enabled Protocols: {', '.join(config['enabled_protocols'])}")
     if include_ip_owners:
-        print("🌐 IP ownership database: ENABLED")
+        print("📚 IP ownership database: ENABLED")
     else:
-        print("🌐 IP ownership database: DISABLED")
+        print("📚 IP ownership database: DISABLED")
 
 
 def show_main_menu():
