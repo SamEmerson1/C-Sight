@@ -14,10 +14,32 @@
 - Understanding network traffic shouldn't require a CS degree
 - Network security peace of mind is a human right!
 
-## Starting
+## Setup
+
+### Clone
 
 ```bash
-cd csight # (initially)
+git clone https://github.com/SamEmerson1/C-Sight.git
+cd C-Sight
+```
+
+### Install
+Use a Python venv (recommended):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install requirements:
+```bash
+pip install -r requirements.txt
+```
+
+### Starting
+
+```bash
+cd csight
 python3 main_csight.py
 ```
 
@@ -59,7 +81,7 @@ python3 main_csight.py
 ---
 ### Notes
 
-- Currently building for MacOS
+- Currently building for MacOS - would work for Window and Linux w/ adjustments
 - Using/Experimenting with PyShark
 - Using IP database from https://ipinfo.io/ (05/29/25)
 - Malicious url database from https://urlhaus.abuse.ch/ (05/31/25)
