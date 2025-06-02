@@ -201,6 +201,7 @@ async def format_packet(packet, config):
     protocol_set = config["enabled_protocols"]
     session_ttl = config.get("session_ttl", 60)
     dns_session_ttl = config.get("dns_session_ttl", 10)
+    user_level = config.get("user_level", 3)
     
     basic_log = None
     # Only looking at IP (4 and 6) packets.
@@ -218,20 +219,35 @@ async def format_packet(packet, config):
     if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
         hostname = packet.tls.handshake_extensions_server_name
         if is_new_session(src_ip, dst_ip, 443, "TLS", session_ttl):
-            basic_log = f"🔐 TLS: {src_ip} → {hostname}"
+            if user_level == 1:
+                basic_log = f"🔐 This device is securely connecting to {hostname}."
+            elif user_level == 2:
+                basic_log = f"🔐 TLS handshake with {hostname} from {src_ip}"
+            else:
+                basic_log = f"🔐 TLS: {src_ip} → {hostname}"
 
     # HTTP - uses the Host header for the website name.
     if 'http' in packet and hasattr(packet.http, 'host'):
         hostname = packet.http.host
         if is_new_session(src_ip, dst_ip, 80, "HTTP", session_ttl):
-            basic_log = f"🌐 HTTP: {src_ip} → {hostname}"
+            if user_level == 1:
+                basic_log = f"🌐 This device is visiting {hostname} (unencrypted)."
+            elif user_level == 2:
+                basic_log = f"🌐 HTTP connection to {hostname} from {src_ip}"
+            else:
+                basic_log = f"🌐 HTTP: {src_ip} → {hostname}"
 
     # DNS - uses the domain name in the query.
     if 'dns' in packet and hasattr(packet.dns, 'qry_name'):
         src_ip = packet.ip.src if 'ip' in packet else packet.ipv6.src
         domain = packet.dns.qry_name
         if is_new_dns_query(src_ip, domain, dns_session_ttl):
-            basic_log = f"🧭 DNS Query: {src_ip} → looking up {domain}"
+            if user_level == 1:
+                basic_log = f"🧭 This device is looking up {domain}."
+            elif user_level == 2:
+                basic_log = f"🧭 DNS query for {domain} from {src_ip}"
+            else:
+                basic_log = f"🧭 DNS Query: {src_ip} → looking up {domain}"
 
     # SSH - checks for the protocol or TCP port 22.
     is_ssh_protocol = 'ssh' in packet
@@ -244,20 +260,25 @@ async def format_packet(packet, config):
 
     if is_ssh_protocol or is_ssh_port:
         if is_new_session(src_ip, dst_ip, 22, "SSH", session_ttl):
-            basic_log = f"🔑 SSH: {src_ip} → {dst_ip}"
+            if user_level == 1:
+                basic_log = f"🔑 This device is connecting to {dst_ip}."
+            elif user_level == 2:
+                basic_log = f"🔑 SSH connection from {src_ip} to {dst_ip}"
+            else:
+                basic_log = f"🔑 SSH: {src_ip} → {dst_ip}"
 
     # QUIC - often used for HTTP/3, encrypted, usually on UDP port 443.
     if 'udp' in packet and hasattr(packet.udp, 'dstport') and packet.udp.dstport == '443':
         # Skip reverse DNS entirely (no PTR lookups)
         owner = get_owner_by_ip(dst_ip)
-        if owner:
-            label = f"{dst_ip} ({owner})"
-            if is_new_session(src_ip, dst_ip, 443, "QUIC", session_ttl):
+        if is_new_session(src_ip, dst_ip, 443, "QUIC", session_ttl):
+            label = f"{dst_ip} ({owner})" if owner else dst_ip
+            if user_level == 1:
+                basic_log = f"🌀 Encrypted connection to {label} using QUIC."
+            elif user_level == 2:
+                basic_log = f"🌀 QUIC connection from {src_ip} to {label}"
+            else:
                 basic_log = f"🌀 QUIC: {src_ip} → {label} (UDP 443)"
-        else:
-            if is_new_session(src_ip, dst_ip, 443, "QUIC", session_ttl):
-                basic_log = f"🌀 QUIC: {src_ip} → {dst_ip} (UDP 443)"
-
 
     # Build packet_info (for the detectors)
     packet_info = build_packet_info(packet)

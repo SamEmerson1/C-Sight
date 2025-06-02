@@ -11,6 +11,7 @@
   ],
   "load_ip_owners": true,
   "ignorelist": "ignorelist.txt",
+  "user_level": 3,
   "detectors": {
     "abnormal_quic": {
       "enabled": true,

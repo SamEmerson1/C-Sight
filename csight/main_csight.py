@@ -35,6 +35,8 @@ CONFIG_PATH = "config.json"
 # Apply the level settings, enabling and disabling detectors
 def apply_level(config, level, include_ip_owners=False):
     config["enabled_protocols"] = LEVEL_PROTOCOLS[level]
+    
+    config["user_level"] = level
 
     for d in config["detectors"]:
         config["detectors"][d]["enabled"] = False
