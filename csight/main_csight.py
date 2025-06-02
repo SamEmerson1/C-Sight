@@ -35,7 +35,7 @@ CONFIG_PATH = "config.json"
 # Apply the level settings, enabling and disabling detectors
 def apply_level(config, level, include_ip_owners=False):
     config["enabled_protocols"] = LEVEL_PROTOCOLS[level]
-    
+
     config["user_level"] = level
 
     for d in config["detectors"]:
@@ -103,9 +103,68 @@ def handle_run():
     print("Done. Exiting C-Sight.")
     sys.exit(0)
 
+
 # Open the config file, allowing the user to edit it from terminal
 def handle_config():
     os.system("nano config.json")
+
+
+# Glossary page
+def handle_glossary():
+    glossary_sections = [
+        ("📌 FOR DATABASE INFO 📌", [
+            ("Refer to my GitHub repo",
+             "https://github.com/SamEmerson1/C-Sight?tab=readme-ov-file (Notes section)"),
+        ]),
+        ("📓 Basics", [
+            ("Protocol", "A network protocol used for communication."),
+            ("Detector", "A specific feature that can be enabled or disabled."),
+            ("Level", "Determines the level of complexity of the logs."),
+        ]),
+        ("📘 Protocols", [
+            ("TLS", "Encrypted protocol used for secure communication (e.g., HTTPS)."),
+            ("HTTP", "Unencrypted web traffic, easy to inspect but insecure."),
+            ("SSH", "Used for remote terminal access, usually on port 22."),
+            ("DNS", "Translates domain names into IP addresses."),
+            ("QUIC", "Modern encrypted protocol (used by HTTP/3), runs over UDP."),
+        ]),
+        ("🧠 Detectors", [
+            ("DNS Tunnel Detect",
+             "Identifies domains with suspicious patterns like high entropy or long/random subdomains — common in data exfiltration."),
+            ("Abnormal QUIC Detect",
+             "Spots unexpected QUIC traffic — useful for catching stealthy encrypted connections or malware using HTTP/3."),
+            ("Malicious URL Detect",
+             "Flags known malicious or phishing URLs based on threat intelligence feeds or heuristics."),
+            ("Unexpected Region Detect",
+             "Alerts when outbound traffic is sent to countries outside your trusted list — could signal C2 beacons or shady APIs."),
+            ("NXDOMAIN Spike Detect",
+             "Detects repeated failed DNS lookups (NXDOMAINs), which often indicate malware probing or DGA (domain generation algorithms)."),
+            ("Sensitive Cleartext Detect",
+             "Watches for credentials, tokens, or PII sent over unencrypted HTTP — major red flag for poor hygiene or leaks."),
+            ("Excessive TLS Detect",
+             "Flags bursts of outbound TLS connections in short time windows — often seen in beaconing or scanner activity."),
+            ("SSH Unusual Ports Detect",
+             "SSH traffic outside standard port 22 is suspicious — could be tunneling, misconfig, or attacker footholds."),
+            ("TLS Handshake Rate Detect",
+             "Monitors rapid TLS handshakes — a sign of scanning, automation, or evasion techniques like JA3 fuzzing."),
+        ]),
+        ("🛠 Levels", [
+            ("Level 1", "Use if you're just watching web traffic. No DNS or QUIC."),
+            ("Level 2", "Use if you're watching web traffic and DNS. No QUIC."),
+            ("Level 3", "Use if you're watching web traffic, DNS, and QUIC."),
+            ("Tip", "The higher the level, the more complex the logs will appear."),
+        ])
+    ]
+
+    print("\n📚 C-Sight Glossary and Info")
+    print("-" * 35)
+    for section_title, entries in glossary_sections:
+        print(f"\n{section_title}")
+        print("-" * len(section_title))
+        for name, desc in entries:
+            print(f"• {name}: {desc}")
+    print("\n🔙 Press Enter to return to the menu.")
+    input()
 
 
 if __name__ == "__main__":
@@ -116,7 +175,7 @@ if __name__ == "__main__":
         elif choice == '2':
             handle_config()
         elif choice == '3':
-            print("\nGlossary coming soon!")
+            handle_glossary()
         elif choice == '4':
             print("Exiting C-Sight.")
             break

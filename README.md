@@ -52,10 +52,9 @@ python3 main_csight.py
 - [x] Add domain/IP ignorelist
 - [x] Log verbosity levels
 - [x] Human friendly log formatting
-- [ ] Add definitions/type glossary
+- [x] Add definitions/type glossary
 - [x] Log metadata
 - [x] Config file
-- [ ] Summary printout
 
 ---
 ### Notes
