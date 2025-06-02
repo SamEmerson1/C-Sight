@@ -254,6 +254,9 @@ async def format_packet(packet, config):
             label = f"{dst_ip} ({owner})"
             if is_new_session(src_ip, dst_ip, 443, "QUIC", session_ttl):
                 basic_log = f"🌀 QUIC: {src_ip} → {label} (UDP 443)"
+        else:
+            if is_new_session(src_ip, dst_ip, 443, "QUIC", session_ttl):
+                basic_log = f"🌀 QUIC: {src_ip} → {dst_ip} (UDP 443)"
 
 
     # Build packet_info (for the detectors)
