@@ -18,7 +18,7 @@
 
 ```bash
 cd csight # (initially)
-sudo python3 csight/pyshark_translator.py
+python3 main_csight.py
 ```
 
 ### Checklist (MVP)
