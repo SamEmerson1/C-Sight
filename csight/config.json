@@ -1,99 +1,107 @@
 {
-    "interface": "en0",
-    "session_ttl": 60,
-    "dns_session_ttl": 10,
-    "ignorelist": "ignorelist.txt",
-    "detectors": {
-        "abnormal_quic": {
-            "enabled": true,
-            "window": 60,
-            "threshold": 40
-        },
-        "dns_tunneling_patterns": {
-            "enabled": true,
-            "label_length": 50,
-            "domain_length": 200,
-            "entropy_threshold": 4.0,
-            "rate_threshold": 20,
-            "window": 60,
-            "allowed_record_types": [
-                "A",
-                "AAAA",
-                "CNAME",
-                "MX",
-                "NS",
-                "TXT",
-                "HTTPS"
-            ],
-            "trusted_doh_roots": [
-                "xfinity.com",
-                "cloudflare-dns.com"
-            ]
-        },
-        "excessive_tls": {
-            "enabled": true,
-            "window": 30,
-            "threshold": 15
-        },
-        "frequent_nxdomain": {
-            "enabled": true,
-            "window": 60,
-            "threshold": 20,
-            "trusted_failures": [
-                "example.local",
-                "internal.lan"
-            ]
-        },
-        "malicious_url_access": {
-            "enabled": true,
-            "threat_feed_path": "~/Documents/C-Sight/C-Sight/csight/detectors/urlhaus.abuse.ch.json",
-            "trusted_domains": [
-                "drive.google.com",
-                "accounts.google.com",
-                "storage.googleapis.com",
-                "s3.amazonaws.com",
-                "github.com",
-                "docs.google.com",
-                "raw.githubusercontent.com"
-            ]
-        },
-        "sensitive_cleartext": {
-            "enabled": true,
-            "sensitive_domains": [
-                "facebook.com",
-                "login.live.com",
-                "bankofamerica.com",
-                "accounts.google.com",
-                "apple.com"
-            ]
-        },
-        "ssh_unusual_ports": {
-            "enabled": true,
-            "known_ports": [
-                22
-            ]
-        },
-        "tls_handshake_rate": {
-            "enabled": true,
-            "window": 10,
-            "threshold": 20
-        },
-        "unexpected_regions": {
-            "enabled": true,
-            "base_dir": "~/Documents/C-Sight/C-Sight/csight/detectors",
-            "blocks_v4": "GeoLite2-Country-Blocks-IPv4.csv",
-            "blocks_v6": "GeoLite2-Country-Blocks-IPv6.csv",
-            "locations": "GeoLite2-Country-Locations-en.csv",
-            "trusted_countries": [
-                "US",
-                "CA",
-                "GB",
-                "DE",
-                "AU",
-                "NL",
-                "IE"
-            ],
-            "cooldown": 30
-        }
+  "interface": "en0",
+  "session_ttl": 60,
+  "dns_session_ttl": 10,
+  "enabled_protocols": [
+    "TLS",
+    "HTTP",
+    "SSH",
+    "DNS",
+    "QUIC"
+  ],
+  "load_ip_owners": true,
+  "ignorelist": "ignorelist.txt",
+  "detectors": {
+    "abnormal_quic": {
+      "enabled": true,
+      "window": 60,
+      "threshold": 40
+    },
+    "dns_tunneling_patterns": {
+      "enabled": true,
+      "label_length": 50,
+      "domain_length": 200,
+      "entropy_threshold": 4.0,
+      "rate_threshold": 20,
+      "window": 60,
+      "allowed_record_types": [
+        "A",
+        "AAAA",
+        "CNAME",
+        "MX",
+        "NS",
+        "TXT",
+        "HTTPS"
+      ],
+      "trusted_doh_roots": [
+        "xfinity.com",
+        "cloudflare-dns.com"
+      ]
+    },
+    "excessive_tls": {
+      "enabled": true,
+      "window": 30,
+      "threshold": 15
+    },
+    "frequent_nxdomain": {
+      "enabled": true,
+      "window": 60,
+      "threshold": 20,
+      "trusted_failures": [
+        "example.local",
+        "internal.lan"
+      ]
+    },
+    "malicious_url_access": {
+      "enabled": true,
+      "threat_feed_path": "~/Documents/C-Sight/C-Sight/csight/detectors/urlhaus.abuse.ch.json",
+      "trusted_domains": [
+        "drive.google.com",
+        "accounts.google.com",
+        "storage.googleapis.com",
+        "s3.amazonaws.com",
+        "github.com",
+        "docs.google.com",
+        "raw.githubusercontent.com"
+      ]
+    },
+    "sensitive_cleartext": {
+      "enabled": true,
+      "sensitive_domains": [
+        "facebook.com",
+        "login.live.com",
+        "bankofamerica.com",
+        "accounts.google.com",
+        "apple.com"
+      ]
+    },
+    "ssh_unusual_ports": {
+      "enabled": true,
+      "known_ports": [
+        22
+      ]
+    },
+    "tls_handshake_rate": {
+      "enabled": true,
+      "window": 10,
+      "threshold": 20
+    },
+    "unexpected_regions": {
+      "enabled": true,
+      "base_dir": "~/Documents/C-Sight/C-Sight/csight/detectors",
+      "blocks_v4": "GeoLite2-Country-Blocks-IPv4.csv",
+      "blocks_v6": "GeoLite2-Country-Blocks-IPv6.csv",
+      "locations": "GeoLite2-Country-Locations-en.csv",
+      "trusted_countries": [
+        "US",
+        "CA",
+        "GB",
+        "DE",
+        "AU",
+        "NL",
+        "IE"
+      ],
+      "cooldown": 30
     }
+  }
 }

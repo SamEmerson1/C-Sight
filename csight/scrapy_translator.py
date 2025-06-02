@@ -1,3 +1,5 @@
+# DEPRECATED in favor of pyshark
+
 from scapy.all import IP, TCP, UDP, ICMP, DNS
 import socket
 import platform

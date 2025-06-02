@@ -20,7 +20,7 @@
 cd csight # (initially)
 sudo python3 csight/pyshark_translator.py
 ```
----
+
 ### Checklist (MVP)
 
 - [x] Watch live local traffic using PyShark
@@ -50,12 +50,12 @@ sudo python3 csight/pyshark_translator.py
 ### Checklist (V.2 - Usability/clarity)
 
 - [x] Add domain/IP ignorelist
-- [ ] Log verbosity levels
+- [x] Log verbosity levels
 - [ ] Human friendly log formatting
 - [ ] Color coded logging
 - [ ] Add definitions/type glossary
 - [ ] Log metadata
-- [ ] Config file
+- [x] Config file
 - [ ] Summary printout
 - [ ] Anomaly scoring 
 

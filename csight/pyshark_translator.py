@@ -1,6 +1,5 @@
 from detectors import ALL_DETECTORS    # Detector registry
 from ignorelist import should_ignore   # Ignore list
-from config import load_config         # Configuration
 
 import os
 import pyshark
@@ -12,15 +11,6 @@ import datetime
 import asyncio
 import aiodns
 from tqdm import tqdm
-
-# Global config
-CONFIG = load_config()
-
-# Interface name
-# Default interface is 'en0' (common for macOS).
-# !!! IMPORTANT: Change "en0" if that's not your network interface.
-# Common ones: 'eth0', 'wlan0' (Linux), 'Ethernet', 'Wi-Fi' (Windows).
-INTERFACE = CONFIG.get("interface", "en0")
 
 # Global trie for IP owner lookup
 pt4 = pytricia.PyTricia(32)   # for IPv4
@@ -36,24 +26,22 @@ resolver = aiodns.DNSResolver()
 # key: (src_ip, dst_ip, port, protocol)
 # value: last_seen timestamp
 active_sessions = {}
-SESSION_TTL = CONFIG.get("session_ttl", 60)  # seconds
 
 # DNS-specific session tracking
 active_dns_queries = {}
-DNS_SESSION_TTL = CONFIG.get("dns_session_ttl", 10)  # seconds
 
 # Stores all formatted log lines
 session_logs = []
 
 
 # Checks if a session is new
-def is_new_session(src_ip, dst_ip, port, protocol):
+def is_new_session(src_ip, dst_ip, port, protocol, ttl):
     now = time.time()
     key = (src_ip, dst_ip, port, protocol)
 
     # Remove expired sessions
     expired_keys = [k for k, v in active_sessions.items()
-                    if now - v > SESSION_TTL]
+                    if now - v > ttl]
     for k in expired_keys:
         del active_sessions[k]
 
@@ -66,13 +54,13 @@ def is_new_session(src_ip, dst_ip, port, protocol):
 
 
 # Checks if a DNS query is new
-def is_new_dns_query(src_ip, domain):
+def is_new_dns_query(src_ip, domain, ttl):
     now = time.time()
     key = (src_ip, domain, "DNS")
 
     # Remove expired DNS entries
     expired_keys = [k for k, v in active_dns_queries.items()
-                    if now - v > DNS_SESSION_TTL]
+                    if now - v > ttl]
     for k in expired_keys:
         del active_dns_queries[k]
 
@@ -209,7 +197,11 @@ def build_packet_info(packet):
 
 
 # Tries to make a simple, readable line out of a packet.
-async def format_packet(packet):
+async def format_packet(packet, config):
+    protocol_set = config["enabled_protocols"]
+    session_ttl = config.get("session_ttl", 60)
+    dns_session_ttl = config.get("dns_session_ttl", 10)
+    
     basic_log = None
     # Only looking at IP (4 and 6) packets.
     if 'ip' in packet:
@@ -225,20 +217,20 @@ async def format_packet(packet):
     # TLS (often HTTPS) - uses SNI to get the hostname.
     if 'tls' in packet and hasattr(packet.tls, 'handshake_extensions_server_name'):
         hostname = packet.tls.handshake_extensions_server_name
-        if is_new_session(src_ip, dst_ip, 443, "TLS"):
+        if is_new_session(src_ip, dst_ip, 443, "TLS", session_ttl):
             basic_log = f"🔐 TLS: {src_ip} → {hostname}"
 
     # HTTP - uses the Host header for the website name.
     if 'http' in packet and hasattr(packet.http, 'host'):
         hostname = packet.http.host
-        if is_new_session(src_ip, dst_ip, 80, "HTTP"):
+        if is_new_session(src_ip, dst_ip, 80, "HTTP", session_ttl):
             basic_log = f"🌐 HTTP: {src_ip} → {hostname}"
 
     # DNS - uses the domain name in the query.
     if 'dns' in packet and hasattr(packet.dns, 'qry_name'):
         src_ip = packet.ip.src if 'ip' in packet else packet.ipv6.src
         domain = packet.dns.qry_name
-        if is_new_dns_query(src_ip, domain):
+        if is_new_dns_query(src_ip, domain, dns_session_ttl):
             basic_log = f"🧭 DNS Query: {src_ip} → looking up {domain}"
 
     # SSH - checks for the protocol or TCP port 22.
@@ -251,23 +243,24 @@ async def format_packet(packet):
             is_ssh_port = True
 
     if is_ssh_protocol or is_ssh_port:
-        if is_new_session(src_ip, dst_ip, 22, "SSH"):
+        if is_new_session(src_ip, dst_ip, 22, "SSH", session_ttl):
             basic_log = f"🔑 SSH: {src_ip} → {dst_ip}"
 
     # QUIC - often used for HTTP/3, encrypted, usually on UDP port 443.
     if 'udp' in packet and hasattr(packet.udp, 'dstport') and packet.udp.dstport == '443':
+        # Skip reverse DNS entirely (no PTR lookups)
         owner = get_owner_by_ip(dst_ip)
-        if not owner:
-            rdns_name = await reverse_dns(dst_ip)
-            if rdns_name:
-                basic_log = f"🕵️ Reverse DNS: {src_ip} → {dst_ip} ({rdns_name})"
-        else:
+        if owner:
             label = f"{dst_ip} ({owner})"
-            if is_new_session(src_ip, dst_ip, 443, "QUIC"):
+            if is_new_session(src_ip, dst_ip, 443, "QUIC", session_ttl):
                 basic_log = f"🌀 QUIC: {src_ip} → {label} (UDP 443)"
+
 
     # Build packet_info (for the detectors)
     packet_info = build_packet_info(packet)
+    
+    if not packet_info["protocol"] or packet_info["protocol"] not in protocol_set:
+        return None
 
     if should_ignore(packet_info):
         return None
@@ -285,14 +278,32 @@ async def format_packet(packet):
     return basic_log
 
 
+# Builds a BPF filter from the enabled protocols
+def get_bpf_filter(enabled):
+    filters = []
+    if "HTTP" in enabled:
+        filters.append("port 80")
+    if "TLS" in enabled:
+        filters.append("port 443")
+    if "SSH" in enabled:
+        filters.append("port 22")
+    if "QUIC" in enabled:
+        filters.append("udp port 443")
+    if "DNS" in enabled:
+        filters.append("port 53")
+    return " or ".join(filters)
+
+
 # Starts sniffing packets.
-def start_sniff(interface=INTERFACE):
+def run_sniffer(config):
+    interface = config.get("interface", "en0")
+    if config.get("load_ip_owners", False):
+        load_ip_owners("ipinfo_lite.json")
     # Make sure TShark is installed and your interface name is correct.
     # You might need admin/sudo rights.
     try:
-        capture = pyshark.LiveCapture(interface=interface)
-        print(
-            f"🔍 Listening for HTTPS, HTTP, SSH and QUIC traffic on {interface}...\n(Press Ctrl+C to stop)\n")
+        capture = pyshark.LiveCapture(interface=interface, bpf_filter=get_bpf_filter(config["enabled_protocols"]))
+        print(f"🔍 Listening for traffic on {interface}...\n(Press Ctrl+C to stop)\n")
 
         loop = asyncio.get_event_loop()
         loop.set_exception_handler(suppress_asyncio_eoferror)
@@ -313,7 +324,7 @@ def start_sniff(interface=INTERFACE):
         async def process_packet(packet):
             nonlocal last_log_time, packet_counter
             try:
-                result = await format_packet(packet)
+                result = await format_packet(packet, config)
                 if result:
                     print(result)
                     session_logs.append(result)
@@ -370,6 +381,7 @@ def prompt_save_log():
         print("🚫 Log not saved.")
 
 
+# Main
 if __name__ == "__main__":
-    load_ip_owners("ipinfo_lite.json")
-    start_sniff(interface=INTERFACE)
+    from config import load_config
+    run_sniffer(load_config())
